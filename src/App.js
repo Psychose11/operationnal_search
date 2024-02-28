@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 const DynamicTable = () => {
   const [columns, setColumns] = useState([
-    ['Tâches', '', '', ''], // Les titres des colonnes initiales
+    ['Tâches', 'A', 'B', 'C'], // Les titres des colonnes initiales
     ['Durée', '', '', ''],
     ['Tâches antérieures', '', '', ''],
     ['Tâches successeurs', '', '', '']
@@ -10,8 +10,10 @@ const DynamicTable = () => {
 
   const addColumn = () => {
     setColumns(prevColumns => {
-      return prevColumns.map(column => {
-        const newColumn = ''; // Nouvelle cellule vide
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const nextLetter = alphabet[prevColumns[0].length - 1]; // La prochaine lettre à ajouter
+      return prevColumns.map((column, index) => {
+        const newColumn = index === 0 ? nextLetter : ''; // Nouvelle cellule avec la lettre ou vide
         return [...column, newColumn]; // Ajout de la nouvelle cellule à la fin de chaque ligne
       });
     });
