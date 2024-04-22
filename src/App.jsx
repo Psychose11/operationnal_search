@@ -21,6 +21,7 @@ const DynamicTable = () => {
 
   const [successors, setSuccessors] = useState({});
   const [data, setData] = useState({});
+  const [taskDetails, setTaskDetails] = useState([]);
 
   const [inputValues, setInputValues] = useState(new Array(columns[0].length - 1).fill(''));
 
@@ -62,7 +63,14 @@ const DynamicTable = () => {
     const tasks = columns[0].slice(1);
     const newData = { ...data };
   
+    // Ajouter la durée des tâches antérieures à newData
     tasks.forEach((task, index) => {
+      const predecessors = chipsValues[2][index + 1] || [];
+      predecessors.forEach(predecessor => {
+        newData[predecessor] = newData[predecessor] || {};
+        newData[predecessor]['Durée'] = inputValues[index]; // Utiliser la durée de la tâche actuelle
+      });
+  
       newData[task] = {
         'T.ant': chipsValues[2][index + 1],
         'T_succ': successors[task] || [],
@@ -72,54 +80,31 @@ const DynamicTable = () => {
   
     console.log(newData);
   
-    // Génération des lignes vides pour chaque en-tête de colonne
-    const emptyRows = Array.from({ length: 0}).map((_, rowIndex) => (
-      <tr key={`emptyRow-${rowIndex}`}>
-        {tasks.map((task) => {
-          const predecessors = newData[task]['T.ant'] || [];
-          const duration = newData[task]['Durée'] || '';
+    const newTaskDetails = tasks.map((task) => {
+      // Obtenir les tâches antérieures et la durée pour la tâche actuelle
+      const predecessors = newData[task]['T.ant'] || [];
+      const duration = newData[task]['Durée'] || '';
   
-          return (
-            <React.Fragment key={`${task}-empty-${rowIndex}`}> 
-              <td style={{ border: "0.5px solid black", padding: "5px", width: "1cm", textAlign: "center" }}></td>
-              <td style={{ border: "0.5px solid black", padding: "5px", width: "1cm", textAlign: "center" }}>{predecessors[rowIndex]}</td>
-            </React.Fragment>
-          );
-        })}
-      </tr>
-    ));
+      // Récupérer les durées des tâches antérieures
+      const predecessorsDurations = predecessors.map(predecessor => {
+        return `${predecessor} durée : ${newData[predecessor]['Durée'] || ''}`;
+      });
   
-    const tableHeader = (
-      <thead>
-        <tr>
-          {tasks.map((task) => (
-            <React.Fragment key={task}>    
-            <th style={{ border: "1px solid black", padding: "5px", textAlign: "center", width: "1cm" }}></th>
-            <th style={{ border: "1px solid black", padding: "5px", textAlign: "center", width: "1cm" }}>{task}</th>
-          
-            </React.Fragment>
-          ))}
-        </tr>
-      </thead>
-    );
+      // Calculer le contenu des prédécesseurs
+      const predecessorsContent = predecessorsDurations.length > 0 ? predecessorsDurations.join(", ") : "Début";
   
-    // Création de la nouvelle table avec les lignes vides
-    const newTable = (
-      <div>
-        <h2>Date au plus tôt</h2>
-        <table style={{ borderCollapse: "collapse", width: "auto" }}>
-          {tableHeader}
-          <tbody>
-            {emptyRows}
-          </tbody>
-        </table>
-      </div>
-    );
+      // Afficher les détails de la tâche
+      return (
+        <div key={task}>
+          <h3>Tâche {task}</h3>
+          <p>Tâches antérieures: {predecessorsContent}</p>
+          <p>Durée de la tâche: {duration}</p>
+        </div>
+      );
+    });
   
-    // Affichage de la nouvelle table
-    ReactDOM.render(newTable, document.getElementById('newTableContainer'));
+    setTaskDetails(newTaskDetails);
   };
-  
   
   
 
@@ -203,17 +188,14 @@ const DynamicTable = () => {
           ))}
         </tbody>
       </table>
-
-
-
-      <div id="newTableContainer"></div>
+  
       <Button onClick={addColumn} label='Nouvelle colonne' />
       <Button onClick={sendData} label='Date au plus tôt' />
-
-
-
-
-
+      
+    <div style={{ maxWidth: "100%", overflowX: "auto" }}id="newTableContainer"></div>
+  <div>
+    {taskDetails}
+  </div>
     </div>
   );
 };
