@@ -58,7 +58,6 @@ const DynamicTable = () => {
     setInputValues(newValues);
   };
 
-  
   const sendData = () => {
     const tasks = columns[0].slice(1);
     const newData = { ...data };
@@ -78,6 +77,21 @@ const DynamicTable = () => {
       };
     });
   
+    // Remplacer les débuts par 0
+    tasks.forEach(task => {
+      if (newData[task]['T.ant'].includes('Début')) {
+        newData[task]['Durée'] = '0';
+      }
+    });
+  
+    // Ajouter une tâche "Fin" avec ses tâches antérieures
+    const finPredecessors = tasks.filter(task => !successors[task]);
+    newData['Fin'] = {
+      'T.ant': finPredecessors,
+      'T_succ': [],
+      'Durée': '',
+    };
+  
     console.log(newData);
   
     const newTaskDetails = tasks.map((task) => {
@@ -86,26 +100,47 @@ const DynamicTable = () => {
       const duration = newData[task]['Durée'] || '';
   
       // Récupérer les durées des tâches antérieures
-      const predecessorsDurations = predecessors.map(predecessor => {
-        return `${predecessor} durée : ${newData[predecessor]['Durée'] || ''}`;
+      const predecessorsData = predecessors.map(predecessor => {
+        const predecessorDuration = newData[predecessor]['Durée'] || '';
+        return { task: predecessor, duration: predecessorDuration };
       });
   
-      // Calculer le contenu des prédécesseurs
-      const predecessorsContent = predecessorsDurations.length > 0 ? predecessorsDurations.join(", ") : "Début";
+      // Calculer la soustraction pour la durée de la tâche
+      let subtraction = '';
+      if (!predecessors.includes('Début')) {
+        subtraction = predecessorsData.reduce((total, data) => {
+          return total - (parseInt(data.duration) || 0);
+        }, parseInt(duration) || 0);
+      }
   
-      // Afficher les détails de la tâche
+      // Créer le tableau des détails de la tâche
       return (
         <div key={task}>
-          <h3>Tâche {task}</h3>
-          <p>Tâches antérieures: {predecessorsContent}</p>
-          <p>Durée de la tâche: {duration}</p>
+          <h3>{duration} {task}</h3>
+          <table style={{ borderCollapse: "collapse", width: "100%" }}>
+            <thead>
+              <tr>
+                <th style={{ border: "1px solid black", padding: "8px", textAlign: "center"}} colSpan={2}>{duration}</th>
+                {/* <th style={{ border: "1px solid black", padding: "8px", textAlign: "center" }}>{duration}</th> */}
+                <th style={{ border: "1px solid black", padding: "8px", textAlign: "center" }} colSpan={2}>{task}</th>
+                {/* <th style={{ border: "1px solid black", padding: "8px", textAlign: "center" }}>{task}</th> */}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ border: "1px solid black", padding: "8px", textAlign: "center" }}>{duration}</td>
+                <td style={{ border: "1px solid black", padding: "8px", textAlign: "center" }}>{predecessorsData.map(data => data.task).join(", ")}</td>
+                <td style={{ border: "1px solid black", padding: "8px", textAlign: "center" }}>{predecessorsData.map(data => data.duration).join(", ")}</td>
+                <td style={{ border: "1px solid black", padding: "8px", textAlign: "center" }}>{subtraction}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       );
     });
   
     setTaskDetails(newTaskDetails);
   };
-  
   
 
   const handleChipsChange = (rowIndex, colIndex, value) => {
