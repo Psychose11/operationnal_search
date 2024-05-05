@@ -70,14 +70,22 @@ const DynamicTable = () => {
       };
     });
     delete newData['Tâches'];
+    console.lo("Données initiaux :")
     console.log(newData);    
-
-
-
-
 
     const calculateEarliestDates = (newData) => {
       const earliestDates = {};
+    
+      // Find tasks without successors
+      const tasksWithoutSuccessors = Object.keys(newData)
+        .filter(task => !newData[task]['T_succ'].length);
+    
+      // Add a "fin" task with tasks without successors as predecessors
+      newData['fin'] = {
+        'T.ant': tasksWithoutSuccessors,
+        'T_succ': [],
+        'Durée': 0,
+      };
     
       // Parcourir chaque tâche
       Object.keys(newData).forEach(task => {
@@ -103,11 +111,67 @@ const DynamicTable = () => {
       return earliestDates;
     };
     
+
+
+
+  
+    
     // Utilisation de la fonction avec newData
     const earliestDates = calculateEarliestDates(newData);
     console.log(earliestDates);
     
     
+    const adjustTaskDurations = (newData, earliestDates) => {
+      const updatedData = { ...newData };
+    
+      // Identify tasks with no initial tasks (predecessors)
+      const tasksWithNoInitialTasks = Object.keys(earliestDates)
+        .filter(task => earliestDates[task].some(predecessor => predecessor.task === 'Début'));
+    
+      // Set duration to 0 for tasks with no initial tasks
+      tasksWithNoInitialTasks.forEach(task => {
+        updatedData[task].Durée = 0;
+      });
+    
+      // Iterate through all tasks to adjust durations
+      Object.keys(updatedData).forEach(task => {
+        let maxDuration = 0;
+    
+        // Iterate through the predecessors of the current task
+        earliestDates[task].forEach(predecessor => {
+          let duration = predecessor.duration;
+    
+          // Add the duration of the predecessor task to the current duration if the task has a duration defined
+          const predecessorDuration = updatedData[predecessor.task]?.Durée;
+          if (predecessorDuration !== undefined) {
+            duration += predecessorDuration;
+          }
+    
+          // Update maxDuration if necessary
+          if (duration > maxDuration) {
+            maxDuration = duration;
+          }
+        });
+    
+        // Update task duration if it is defined
+        if (updatedData[task]?.Durée !== undefined) {
+          updatedData[task].Durée = maxDuration;
+        }
+      });
+    
+      return updatedData;
+    };
+    
+    
+    
+    
+    // Call the function to adjust task durations
+    const updatedData = adjustTaskDurations(newData, earliestDates);
+    console.log("Données finaux :");
+    console.log(updatedData); // Display updated data with adjusted durations
+    
+
+
 };
   
 
