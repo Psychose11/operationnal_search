@@ -62,85 +62,53 @@ const DynamicTable = () => {
     const tasks = columns[0].slice(1);
     const newData = { ...data };
   
-    // Ajouter la durée des tâches antérieures à newData
     tasks.forEach((task, index) => {
-      const predecessors = chipsValues[2][index + 1] || [];
-      predecessors.forEach(predecessor => {
-        newData[predecessor] = newData[predecessor] || {};
-        newData[predecessor]['Durée'] = inputValues[index]; // Utiliser la durée de la tâche actuelle
-      });
-  
       newData[task] = {
         'T.ant': chipsValues[2][index + 1],
         'T_succ': successors[task] || [],
         'Durée': inputValues[index],
       };
     });
-  
-    // Remplacer les débuts par 0
-    tasks.forEach(task => {
-      if (newData[task]['T.ant'].includes('Début')) {
-        newData[task]['Durée'] = '0';
-      }
-    });
-  
-    // Ajouter une tâche "Fin" avec ses tâches antérieures
-    const finPredecessors = tasks.filter(task => !successors[task]);
-    newData['Fin'] = {
-      'T.ant': finPredecessors,
-      'T_succ': [],
-      'Durée': '',
-    };
-  
-    console.log(newData);
-  
-    const newTaskDetails = tasks.map((task) => {
-      // Obtenir les tâches antérieures et la durée pour la tâche actuelle
-      const predecessors = newData[task]['T.ant'] || [];
-      const duration = newData[task]['Durée'] || '';
-  
-      // Récupérer les durées des tâches antérieures
-      const predecessorsData = predecessors.map(predecessor => {
-        const predecessorDuration = newData[predecessor]['Durée'] || '';
-        return { task: predecessor, duration: predecessorDuration };
+    delete newData['Tâches'];
+    console.log(newData);    
+
+
+
+
+
+    const calculateEarliestDates = (newData) => {
+      const earliestDates = {};
+    
+      // Parcourir chaque tâche
+      Object.keys(newData).forEach(task => {
+        // Récupérer les tâches antérieures et leur durée
+        const predecessors = newData[task]['T.ant'] || [];
+        let predecessorDurations = [];
+    
+        // Si la tâche a des tâches antérieures
+        if (predecessors.length > 0) {
+          predecessorDurations = predecessors.map(predecessor => ({
+            task: predecessor,
+            duration: newData[predecessor]['Durée'] || 0 // Si la durée est absente, on met 0
+          }));
+        } else {
+          // Si la tâche n'a pas de tâches antérieures, sa durée au plus tôt est 0
+          predecessorDurations = [{ task: 'Début', duration: 0 }];
+        }
+    
+        // Stocker les durées des tâches antérieures pour la tâche actuelle
+        earliestDates[task] = predecessorDurations;
       });
-  
-      // Calculer la soustraction pour la durée de la tâche
-      let subtraction = '';
-      if (!predecessors.includes('Début')) {
-        subtraction = predecessorsData.reduce((total, data) => {
-          return total - (parseInt(data.duration) || 0);
-        }, parseInt(duration) || 0);
-      }
-  
-      // Créer le tableau des détails de la tâche
-      return (
-        <div key={task}>
-          <h3>{duration} {task}</h3>
-          <table style={{ borderCollapse: "collapse", width: "100%" }}>
-            <thead>
-              <tr>
-                <th style={{ border: "1px solid black", padding: "8px", textAlign: "center"}} colSpan={2}>{duration}</th>
-                {/* <th style={{ border: "1px solid black", padding: "8px", textAlign: "center" }}>{duration}</th> */}
-                <th style={{ border: "1px solid black", padding: "8px", textAlign: "center" }} colSpan={2}>{task}</th>
-                {/* <th style={{ border: "1px solid black", padding: "8px", textAlign: "center" }}>{task}</th> */}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={{ border: "1px solid black", padding: "8px", textAlign: "center" }}>{duration}</td>
-                <td style={{ border: "1px solid black", padding: "8px", textAlign: "center" }}>{predecessorsData.map(data => data.task).join(", ")}</td>
-                <td style={{ border: "1px solid black", padding: "8px", textAlign: "center" }}>{predecessorsData.map(data => data.duration).join(", ")}</td>
-                <td style={{ border: "1px solid black", padding: "8px", textAlign: "center" }}>{subtraction}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      );
-    });
-  
-    setTaskDetails(newTaskDetails);
-  };
+    
+      return earliestDates;
+    };
+    
+    // Utilisation de la fonction avec newData
+    const earliestDates = calculateEarliestDates(newData);
+    console.log(earliestDates);
+    
+    
+};
   
 
   const handleChipsChange = (rowIndex, colIndex, value) => {
@@ -227,10 +195,7 @@ const DynamicTable = () => {
       <Button onClick={addColumn} label='Nouvelle colonne' />
       <Button onClick={sendData} label='Date au plus tôt' />
       
-    <div style={{ maxWidth: "100%", overflowX: "auto" }}id="newTableContainer"></div>
-  <div>
-    {taskDetails}
-  </div>
+    
     </div>
   );
 };
