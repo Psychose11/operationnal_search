@@ -22,7 +22,8 @@ const DynamicTable = () => {
   const [successors, setSuccessors] = useState({});
   const [data, setData] = useState({});
   const [taskDetails, setTaskDetails] = useState([]);
-
+  const [latestTaskDetails , setLatestTaskDetails] = useState([]);
+  const [taskSchedule, setTaskSchedule] = useState("");
   const [inputValues, setInputValues] = useState(new Array(columns[0].length - 1).fill(''));
 
 
@@ -70,7 +71,7 @@ const DynamicTable = () => {
       };
     });
     delete newData['Tâches'];
-    console.lo("Données initiaux :")
+    console.log("Données initiaux :")
     console.log(newData);    
 
     const calculateEarliestDates = (newData) => {
@@ -118,6 +119,7 @@ const DynamicTable = () => {
     
     // Utilisation de la fonction avec newData
     const earliestDates = calculateEarliestDates(newData);
+    console.log("Donnée pour la DAT");
     console.log(earliestDates);
     
     
@@ -162,16 +164,233 @@ const DynamicTable = () => {
       return updatedData;
     };
     
-    
-    
-    
     // Call the function to adjust task durations
     const updatedData = adjustTaskDurations(newData, earliestDates);
-    console.log("Données finaux :");
+    console.log("Données finaux DAT:");
     console.log(updatedData); // Display updated data with adjusted durations
+
+    
+
+    const displayTaskTables = (updatedData, earliestData) => {
+      const taskTables = Object.keys(updatedData).map(task => {
+        const taskData = updatedData[task];
+        const duration = taskData.Durée;
+        const predecessors = taskData['T.ant'];
+        let predecessorDurations = [];
+    
+        if (Array.isArray(predecessors)) {
+          predecessorDurations = predecessors.map(predecessor => {
+            const predecessorDuration = updatedData[predecessor]?.Durée;
+            return { task: predecessor, newDuration: predecessorDuration || 0 };
+          });
+        } else if (!earliestData[task].find(data => data.task === 'Début')) {
+          // If no predecessors and no 'Début' in earliestData, add 'Début' with duration 0
+          predecessorDurations = [{ task: 'Début', newDuration: 0 }];
+        }
+    
+        return (
+          <div key={task} style={{ display: "inline-flex", margin: "0 2px" }}>
+            <table style={{ borderCollapse: "collapse", width: "3cm", border: "1px solid black" }}>
+              <thead>
+                <tr>
+                  <th colSpan={2}>
+                    <span style={{ textAlign: "left" }}>{duration}</span> {'    '} {task}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {predecessorDurations.map((predecessor, index) => (
+                  <tr key={index}>
+                    <td style={{ border: "1px solid black", padding: "8px" }}>
+                      {predecessor.newDuration}
+                    </td>
+                    <td style={{ border: "1px solid black", padding: "8px" }}>
+                      {predecessor.task} ({earliestData[task].find(data => data.task === predecessor.task)?.duration || 0})
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      });
+    
+      return taskTables.filter(table => table !== null);
+    };
+    
+    const taskTables = displayTaskTables(updatedData, earliestDates);
+    setTaskDetails(taskTables);
+    
+    const displayTaskSchedule = () => {
+      const visited = {};
+      const tasksSchedule = [];
+    
+      const visitTask = (task) => {
+        if (!visited[task]) {
+          visited[task] = true;
+    
+          const taskData = updatedData[task];
+          if (taskData && taskData['T.ant'] && Array.isArray(taskData['T.ant'])) {
+            const predecessors = taskData['T.ant'];
+            predecessors.forEach(predecessor => visitTask(predecessor));
+          }
+    
+          tasksSchedule.push(`${task} (${taskData.Durée || 0})`);
+        }
+      };
+    
+      const tasks = Object.keys(updatedData);
+      tasks.forEach(task => visitTask(task));
+    
+      const scheduleString = tasksSchedule.join(" - ");
+    
+      return (
+        <div>
+          {scheduleString}
+        </div>
+      );
+    };
+    const taskSchedule = displayTaskSchedule();
+    setTaskSchedule(taskSchedule);
     
 
 
+
+    const calculateLatestDates = (newData) => {
+      const latestDates = {};
+    
+      // Find tasks without predecessors
+      const tasksWithoutPredecessors = Object.keys(newData)
+        .filter(task => !newData[task]['T.ant'].length);
+    
+      // Add a "start" task with tasks without predecessors as successors
+      newData['start'] = {
+        'T.ant': [],
+        'T_succ': tasksWithoutPredecessors,
+        'Durée': 0,
+      };
+    
+      // Iterate through each task
+      Object.keys(newData).forEach(task => {
+        // Retrieve successors and their durations
+        const successors = newData[task]['T_succ'] || [];
+        let successorDurations = [];
+    
+        // If the task has successors
+        if (successors.length > 0) {
+          successorDurations = successors.map(successor => ({
+            task: successor,
+            duration: newData[successor]['Durée'] || 0 // If duration is missing, set it to 0
+          }));
+        } else {
+          // If the task has no successors, its latest date is equal to its duration
+          successorDurations = [{ task: 'fin', duration: newData[task]['Durée'] }];
+        }
+    
+        // Store the latest dates for the current task
+        latestDates[task] = successorDurations;
+      });
+    
+      return latestDates;
+    };
+    
+    // Utilisation de la fonction avec newData
+    const latestDates = calculateLatestDates(newData);
+    console.log(latestDates);
+    
+    const adjustTaskDurationsLatest = (newData, latestDates) => {
+      const updatedData = { ...newData };
+    
+      // Identify tasks with no successors (final tasks)
+      const finalTasks = Object.keys(latestDates)
+        .filter(task => !latestDates[task].length);
+    
+      // Set latest dates for final tasks
+      finalTasks.forEach(task => {
+        updatedData[task].latestDate = updatedData[task].Durée;
+      });
+    
+      // Iterate through all tasks to adjust durations
+      Object.keys(updatedData).forEach(task => {
+        let latestDate = updatedData[task].latestDate || 0;
+    
+        // Iterate through the successors of the current task
+        latestDates[task].forEach(successor => {
+          let duration = successor.duration;
+    
+          // Subtract the duration of the successor task from the current latest date
+          latestDate -= duration;
+    
+          // Update latestDate if necessary
+          if (latestDate < 0 || latestDate > successor.task.latestDate) {
+            latestDate = successor.task.latestDate;
+          }
+        });
+    
+        // Update latest date for the current task
+        updatedData[task].latestDate = latestDate;
+      });
+    
+      return updatedData;
+    };
+    
+    // Call the function to adjust task durations for latest dates
+    const updatedDataLatest = adjustTaskDurationsLatest(newData, latestDates);
+    console.log("Données finaux DPT:");
+    console.log(updatedDataLatest); // Display updated data with adjusted durations for latest dates
+    
+
+    const displayLatestTaskTables = (updatedData, latestData) => {
+      const taskTables = Object.keys(updatedData).map(task => {
+        const taskData = updatedData[task];
+        const duration = taskData.Durée;
+        const predecessors = taskData['T.ant'];
+        let predecessorDurations = [];
+    
+        // Find the old duration for all predecessors
+        predecessors.forEach(predecessor => {
+          const predecessorDuration = updatedData[predecessor]?.latestDate;
+          predecessorDurations.push({ task: predecessor, oldDate: predecessorDuration || 0 });
+        });
+    
+        return (
+          <div key={task} style={{ display: "inline-flex", margin: "0 2px" }}>
+            <table style={{ borderCollapse: "collapse", width: "3cm", border: "1px solid black" }}>
+              <thead>
+                <tr>
+                  <th colSpan={2}>
+                    <span style={{ textAlign: "left" }}>{duration}</span> {'    '} {task}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {predecessorDurations.map((predecessor, index) => (
+                  <tr key={index}>
+                    <td style={{ border: "1px solid black", padding: "8px" }}>
+                      {predecessor.oldDate}
+                    </td>
+                    <td style={{ border: "1px solid black", padding: "8px" }}>
+                      {predecessor.task}
+                    </td>
+                  </tr>
+                ))}
+                <tr>
+                  <td colSpan={2} style={{ border: "1px solid black", padding: "8px" }}>
+                    {latestData[task].find(data => data.task === 'fin')?.newDate || 0}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        );
+      });
+    
+      return taskTables.filter(table => table !== null);
+    };
+    
+    const latestTaskTables = displayLatestTaskTables(updatedDataLatest, latestDates);
+    setLatestTaskDetails(latestTaskTables); // Assuming you have a state variable to hold the latest task tables
+    
 };
   
 
@@ -255,11 +474,38 @@ const DynamicTable = () => {
           ))}
         </tbody>
       </table>
-  
+  <br />
+ 
       <Button onClick={addColumn} label='Nouvelle colonne' />
-      <Button onClick={sendData} label='Date au plus tôt' />
+      <Button onClick={sendData} label='Générer les tableaux' />
+<br />
+<br />
+      {/* Affichage des tables des tâches */}
+
+      <h4>Dates au plus tôt</h4>
+      <div>
+        {taskDetails}
+      </div>
+
+
+
+     <h4>Dates au plus tard</h4>
+      <div>
+        {latestTaskDetails}
+      </div>
+
+      {/* Conteneur pour les résultats */}
+      <div id="resultsContainer"></div>
+
+      <div>
+        {taskSchedule && (
+          <div>
+            <h2>Chemin critiques:</h2>
+            <p>{taskSchedule}</p>
+          </div>
+        )}
+      </div>
       
-    
     </div>
   );
 };
